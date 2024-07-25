@@ -12,6 +12,8 @@
    .list-input {
       margin: 10px;
       display: block;
+      resize: both;
+      overflow: auto;
     }
    .remove-button {
       margin-left: 10px;
@@ -21,6 +23,15 @@
 </head>
 <body>
   <h1>Drill Maker</h1>
+  <label for="defaultLanguage">Default Language:</label>
+<select id="defaultLanguage">
+  <option value="en" selected>English</option>
+  <option value="ja">Japanese</option>
+  <option value="fr">French</option>
+  <option value="es">Spanish</option>
+  <!-- Add more languages as needed -->
+</select>
+<br>
   <select id="initial-lists-select">
     <option value="default">Default Lists</option>
     <option value="unarmed">Unarmed</option>
@@ -37,8 +48,76 @@
   <br>
   <br>
   <p>Basic usage is to add a lists of words seperated by commas in each "list" text box. The page will then play a random word from the first list, then the second list and so on, repeating again from the top when it reaches the end, with the specified wait time between each word. </p>
+  <p>You can place a colon and then the two letter language code for the language you want the text pronouced in. For example:</p>
+  <p>dog, inu:ja, cat</p>
+  <p>would attempt to pronouce dog and cat in the default language and inu in Japanese if your browser has it available.</p>
+  <label>Your browser's available TTS languages:</label>
+  <div id="language-list-container"></div>
+  <p>If need to add a language see below</p>
+  <a href="https://support.microsoft.com/en-us/windows/install-a-language-for-windows-ccd853d3-9ecd-7da7-9ef0-72b4a055410a">Install a language for Windows</a>
+
+  <p>Upload your own lists. Warning this clears your current input.</p>
+  <input type="file" id="file-input" accept=".json">
+  <p>Download the current default lists as a template.</p>
+  <button id="download-button">Download Default Lists</button>
+  <p>After downloading the file, open it in a text editor like notepad. Then follow the format to add, remove or edit the lists. You can then upload that file any time to have your own lists available.</p>
 
   <script>
+    const listContainer = document.getElementById('language-list-container');
+    const languageList = document.createElement('ul');
+    const uniqueLanguages = new Set();
+
+    function loadVoices() {
+      const voices = window.speechSynthesis.getVoices();
+      voices.forEach((voice) => {
+        const language = voice.lang;
+        if (!uniqueLanguages.has(language)) {
+          uniqueLanguages.add(language);
+          const listItem = document.createElement('li');
+          listItem.textContent = language;
+          languageList.appendChild(listItem);
+        }
+      });
+
+      listContainer.appendChild(languageList);
+    }
+    loadVoices();
+
+    window.speechSynthesis.onvoiceschanged = () => {
+      loadVoices();
+    }
+
+    // Get the input field and button elements
+    const fileInput = document.getElementById('file-input');
+    const downloadButton = document.getElementById('download-button');
+
+    // Add an event listener to the input field to handle file uploads
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const uploadedLists = JSON.parse(e.target.result);
+        // Update the initialLists object with the new data
+        Object.keys(uploadedLists).forEach((listName) => {
+          initialLists[listName] = uploadedLists[listName];
+        });
+        listsContainer.innerHTML = '';
+      };
+      reader.readAsText(file);
+    });
+
+    // Add an event listener to the download button to handle downloads
+    downloadButton.addEventListener('click', () => {
+      const listsToDownload = initialLists;
+      const json = JSON.stringify(listsToDownload, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'default-lists.json';
+      a.click();
+    });
+
     const listsContainer = document.getElementById('lists-container');
     const addListButton = document.getElementById('add-list-button');
     const startButton = document.getElementById('start-button');
@@ -55,7 +134,7 @@
     // Define multiple initial lists
     const initialLists = {
       default: ['north, south, east, west', 'up, down, left, right', 'hello, world', 'foo, bar'],
-      unarmed: ['North, East, South, West', 'Ichimonji, Jumonji, Hicho, Shizen, Doko, Hira Ichimonji, Kosei, Fudoza, Hoko', 'Jump, Roll, Punch, Omote Shuto, Ura Shuto, Front kick, Back kick, Reverse Punch'],
+      unarmed: ['North, East, South, West', 'Ichimonji:ja, Jumonji:ja, Hicho:ja, Shizen:ja, Doko:ja, Hira Ichimonji:ja, Kosei:ja, Fudoza:ja, Hoko:ja', 'Jump, Roll, Punch, Omote Shuto:ja, Ura Shuto:ja, Front kick, Back kick, Reverse Punch'],
       rokushyakubo: ['North, East, South, West', 'yellow, orange, purple', 'black, white, gray'],
       sword: ['North, East, South, West', 'ectangle, hexagon, octagon', 'heart, star, diamond']
     };
@@ -65,8 +144,9 @@
       listsContainer.innerHTML = '';
       lists = [];
       initialLists[selectedInitialList].forEach((list) => {
-        const listInput = document.createElement('input');
-        listInput.type = 'text';
+        const listInput = document.createElement('textarea');
+        listInput.rows = 1;
+        listInput.cols = 50;
         listInput.value = list;
         listInput.className = 'list-input';
 
@@ -94,8 +174,9 @@
     });
 
     addListButton.addEventListener('click', () => {
-      const newListInput = document.createElement('input');
-      newListInput.type = 'text';
+      const newListInput = document.createElement('textarea');
+      listInput.rows = 1;
+      listInput.cols = 50;
       newListInput.placeholder = 'Enter list of strings (comma separated)';
       newListInput.className = 'list-input';
 
@@ -122,8 +203,21 @@
       startButton.disabled = false;
     });
 
+
     startButton.addEventListener('click', () => {
-      lists = Array.from(listsContainer.children).map((listContainer) => listContainer.children[0].value.split(',').map((str) => str.trim()));
+      lists = Array.from(listsContainer.children).map((listContainer) => {
+        const defaultLanguageSelect = document.getElementById('defaultLanguage');
+        const listInput = listContainer.children[0];
+        const list = listInput.value.split(',').map((str) => str.trim());
+        return list.map((item) => {
+          const match = item.match(/^(.+):([a-z]{2})$/);
+          if (match) {
+            return { text: match[1], lang: match[2] };
+          } else {
+            return { text: item, lang: defaultLanguageSelect.value };
+          }
+        });
+      });
       currentListIndex = 0;
       playing = true;
       startButton.disabled = true;
@@ -148,7 +242,8 @@
       const randomString = currentList[Math.floor(Math.random() * currentList.length)];
 
       // Play TTS file of random string
-      ttsPlayer = new SpeechSynthesisUtterance(randomString);
+      ttsPlayer = new SpeechSynthesisUtterance(randomString.text);
+      ttsPlayer.lang = randomString.lang;
       window.speechSynthesis.speak(ttsPlayer);
 
       setTimeout(() => {
