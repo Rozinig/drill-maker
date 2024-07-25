@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Drill Maker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    #lists-container {
+      display: block;
+    }
+   .list-input {
+      margin: 10px;
+      display: block;
+    }
+   .remove-button {
+      margin-left: 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Drill Maker</h1>
+  <select id="initial-lists-select">
+    <option value="default">Default Lists</option>
+    <option value="unarmed">Unarmed</option>
+    <option value="rokushyakubo">Rokushyaku Bo</option>
+    <option value="sword">Sword</option>
+  </select>
+  <button id="load-initial-lists-button">Load Initial Lists</button>
+  <div id="lists-container"></div>
+  <button id="add-list-button">Add List</button>
+  <button id="start-button">Start</button>
+  <button id="stop-button" disabled>Stop</button>
+  <input id="wait-time-input" type="number" value="2" />
+  <label for="wait-time-input">Wait time (seconds)</label>
+  <br>
+  <br>
+  <p>Basic usage is to add a lists of words seperated by commas in each "list" text box. The page will then play a random word from the first list, then the second list and so on, repeating again from the top when it reaches the end, with the specified wait time between each word. </p>
+
+  <script>
+    const listsContainer = document.getElementById('lists-container');
+    const addListButton = document.getElementById('add-list-button');
+    const startButton = document.getElementById('start-button');
+    const stopButton = document.getElementById('stop-button');
+    const waitTimeInput = document.getElementById('wait-time-input');
+    const initialListsSelect = document.getElementById('initial-lists-select');
+    const loadInitialListsButton = document.getElementById('load-initial-lists-button');
+
+    let lists = [];
+    let currentListIndex = 0;
+    let ttsPlayer;
+    let playing = false;
+
+    // Define multiple initial lists
+    const initialLists = {
+      default: ['north, south, east, west', 'up, down, left, right', 'hello, world', 'foo, bar'],
+      unarmed: ['North, East, South, West', 'Ichimonji, Jumonji, Hicho, Shizen, Doko, Hira Ichimonji, Kosei, Fudoza, Hoko', 'Jump, Roll, Punch, Omote Shuto, Ura Shuto, Front kick, Back kick, Reverse Punch'],
+      rokushyakubo: ['North, East, South, West', 'yellow, orange, purple', 'black, white, gray'],
+      sword: ['North, East, South, West', 'ectangle, hexagon, octagon', 'heart, star, diamond']
+    };
+
+    loadInitialListsButton.addEventListener('click', () => {
+      const selectedInitialList = initialListsSelect.value;
+      listsContainer.innerHTML = '';
+      lists = [];
+      initialLists[selectedInitialList].forEach((list) => {
+        const listInput = document.createElement('input');
+        listInput.type = 'text';
+        listInput.value = list;
+        listInput.className = 'list-input';
+
+        const removeButton = document.createElement('button');
+        removeButton.textContent = 'Remove';
+        removeButton.className = 'emove-button';
+
+        const listContainer = document.createElement('div');
+        listContainer.appendChild(listInput);
+        listContainer.appendChild(removeButton);
+        listsContainer.appendChild(listContainer);
+
+        removeButton.addEventListener('click', () => {
+          listsContainer.removeChild(listContainer);
+          lists = lists.filter((list, index) => index!== lists.indexOf(list));
+          if (Array.from(listsContainer.children).length === 0) {
+            startButton.disabled = true;
+          } else {
+            startButton.disabled = false;
+          }
+        });
+
+        lists.push(list);
+      });
+    });
+
+    addListButton.addEventListener('click', () => {
+      const newListInput = document.createElement('input');
+      newListInput.type = 'text';
+      newListInput.placeholder = 'Enter list of strings (comma separated)';
+      newListInput.className = 'list-input';
+
+      const removeButton = document.createElement('button');
+      removeButton.textContent = 'Remove';
+      removeButton.className = 'emove-button';
+
+      const listContainer = document.createElement('div');
+      listContainer.appendChild(newListInput);
+      listContainer.appendChild(removeButton);
+      listsContainer.appendChild(listContainer);
+
+      removeButton.addEventListener('click', () => {
+        listsContainer.removeChild(listContainer);
+        lists = lists.filter((list, index) => index!== lists.indexOf(list));
+        if (Array.from(listsContainer.children).length === 0) {
+          startButton.disabled = true;
+        } else {
+          startButton.disabled = false;
+        }
+      });
+
+      lists.push('');
+      startButton.disabled = false;
+    });
+
+    startButton.addEventListener('click', () => {
+      lists = Array.from(listsContainer.children).map((listContainer) => listContainer.children[0].value.split(',').map((str) => str.trim()));
+      currentListIndex = 0;
+      playing = true;
+      startButton.disabled = true;
+      stopButton.disabled = false;
+      playNextList();
+    });
+
+    stopButton.addEventListener('click', () => {
+      playing = false;
+      startButton.disabled = false;
+      stopButton.disabled = true;
+      window.speechSynthesis.cancel();
+    });
+
+    function playNextList() {
+      if (!playing) return;
+      if (currentListIndex >= lists.length) {
+        currentListIndex = 0;
+      }
+
+      const currentList = lists[currentListIndex];
+      const randomString = currentList[Math.floor(Math.random() * currentList.length)];
+
+      // Play TTS file of random string
+      ttsPlayer = new SpeechSynthesisUtterance(randomString);
+      window.speechSynthesis.speak(ttsPlayer);
+
+      setTimeout(() => {
+        currentListIndex++;
+        playNextList();
+      }, waitTimeInput.valueAsNumber*1000);
+    }
+  </script>
+</body>
+</html>
