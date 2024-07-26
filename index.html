@@ -31,12 +31,16 @@
   <option value="es">Spanish</option>
   <!-- Add more languages as needed -->
 </select>
-<p>Select a pre-loaded list:</p>
+<p>Select a Drill:</p>
   <select id="initial-lists-select">
   </select>
-  <button id="load-initial-lists-button">Load List</button>
+  <button id="delete-list-button">Delete Drill</button>
+  <input id="name-input" type="text" placeholder="Enter preset name">
+  <button id="add-button">Add Drill</button>
+  <button id="edit-name-button">Edit Name</button>
   <div id="lists-container"></div>
-  <button id="add-list-button">Add List</button>
+  <p></p>
+  <button id="add-list-button">Add Drill</button>
   <button id="start-button">Start</button>
   <button id="stop-button" disabled>Stop</button>
   <input id="wait-time-input" type="number" value="2" />
@@ -44,22 +48,17 @@
   <br>
   <br>
   <p>Basic usage is to add a lists of words seperated by commas in each "list" text box. The page will then play a random word from the first list, then the second list and so on, repeating again from the top when it reaches the end, with the specified wait time between each word. </p>
-  <p>You can place a colon and then the two letter language code for the language you want the text pronouced in. For example:</p>
-  <p>dog, inu:ja, cat</p>
-  <p>would attempt to pronouce dog and cat in the default language and inu in Japanese if your browser has it available.</p>
+  <p>You can place a colon and then the two letter language code for the language you want the text pronouced in. For example: [ dog, inu:ja, cat ] would attempt to pronouce dog and cat in the default language and inu in Japanese if your browser has it available.</p>
 
-  <p>Upload your own lists. Warning this clears your current input.</p>
+  <p>Upload drills. Warning this clears your current input.</p>
   <input type="file" id="file-input" accept=".json">
-  <p>Download the current default lists as a template.</p>
-  <button id="download-button">Download Default Lists</button>
-  <p>After downloading the file, open it in a text editor like notepad. Then follow the format to add, remove or edit the lists. You can then upload that file any time to have your own lists available.</p>
+  <p>Download the current drills for later.</p>
+  <button id="download-button">Download Drills</button>
 
   <p>To report an issue or view the source code, check out the project on <a href="https://github.com/Rozinig/drill-maker">Github</a></p>
 
    <p>Your browser's available TTS languages are listed below. If you need to add one please see:  <a href="https://support.microsoft.com/en-us/windows/install-a-language-for-windows-ccd853d3-9ecd-7da7-9ef0-72b4a055410a">Install a language for Windows</a></p>
- 
-  <label>Your browser's available TTS languages:</label>
-  <div id="language-list-container"></div>
+   <div id="language-list-container"></div>
 
   <script>
     const fileInput = document.getElementById('file-input');
@@ -70,9 +69,12 @@
     const stopButton = document.getElementById('stop-button');
     const waitTimeInput = document.getElementById('wait-time-input');
     const initialListsSelect = document.getElementById('initial-lists-select');
-    const loadInitialListsButton = document.getElementById('load-initial-lists-button');
+    const deleteListButton = document.getElementById('delete-list-button');
     const listContainer = document.getElementById('language-list-container');
     const languageList = document.createElement('ul');
+    const addButton = document.getElementById('add-button');
+    const nameInput = document.getElementById('name-input');
+    const editNameButton = document.getElementById('edit-name-button');
     const uniqueLanguages = new Set();
 
     function loadVoices() {
@@ -95,17 +97,15 @@
       loadVoices();
     }
 
-    // Add an event listener to the input field to handle file uploads
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
+    fileInput.addEventListener('change', function() {
+      const file = fileInput.files[0];
       const reader = new FileReader();
-      reader.onload = (e) => {
-        const uploadedLists = JSON.parse(e.target.result);
-        // Update the initialLists object with the new data
-        //Object.keys(uploadedLists).forEach((listName) => {initialLists[listName] = uploadedLists[listName];});
+      reader.onload = function() {
+        const uploadedLists = JSON.parse(reader.result);
         initialLists = uploadedLists;
-        listsContainer.innerHTML = '';
         setLists(initialLists);
+        const selectedInitialList = initialListsSelect.value;
+        loadSelectedList(selectedInitialList);
       };
       reader.readAsText(file);
     });
@@ -148,11 +148,19 @@
     };
     setLists(initialLists);
 
-    loadInitialListsButton.addEventListener('click', () => {
+    function updateInitialLists() {
       const selectedInitialList = initialListsSelect.value;
+      const listsArray = Array.from(listsContainer.children).map((listContainer) => {
+        const listInput = listContainer.children[0];
+        return listInput.value;
+      });
+      initialLists[selectedInitialList] = listsArray;
+    }
+
+    function loadSelectedList(selectedInitialList) {
       listsContainer.innerHTML = '';
       lists = [];
-      initialLists[selectedInitialList].forEach((list) => {
+      initialLists[selectedInitialList].forEach(function(list) {
         const listInput = document.createElement('textarea');
         listInput.rows = 1;
         listInput.cols = 50;
@@ -161,25 +169,41 @@
 
         const removeButton = document.createElement('button');
         removeButton.textContent = 'Remove';
-        removeButton.className = 'emove-button';
+        removeButton.className = 'remove-button';
 
         const listContainer = document.createElement('div');
         listContainer.appendChild(listInput);
         listContainer.appendChild(removeButton);
         listsContainer.appendChild(listContainer);
 
-        removeButton.addEventListener('click', () => {
+        removeButton.addEventListener('click', function() {
           listsContainer.removeChild(listContainer);
-          lists = lists.filter((list, index) => index!== lists.indexOf(list));
+          lists = lists.filter(function(list, index) {
+            return index !== lists.indexOf(list);
+          });
           if (Array.from(listsContainer.children).length === 0) {
             startButton.disabled = true;
           } else {
             startButton.disabled = false;
           }
+          updateInitialLists();
         });
 
-        lists.push(list);
+        listInput.addEventListener('input', updateInitialLists);
+        lists.push('');
+        startButton.disabled = false;
+        updateInitialLists();
       });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const selectedInitialList = initialListsSelect.value;
+      loadSelectedList(selectedInitialList);
+    });
+
+    initialListsSelect.addEventListener('change', () => {
+      const selectedInitialList = initialListsSelect.value;
+      loadSelectedList(selectedInitialList);
     });
 
     addListButton.addEventListener('click', () => {
@@ -191,7 +215,7 @@
 
       const removeButton = document.createElement('button');
       removeButton.textContent = 'Remove';
-      removeButton.className = 'emove-button';
+      removeButton.className = 'remove-button';
 
       const listContainer = document.createElement('div');
       listContainer.appendChild(newListInput);
@@ -206,12 +230,49 @@
         } else {
           startButton.disabled = false;
         }
+        updateInitialLists();
       });
 
+      newListInput.addEventListener('input', updateInitialLists);
       lists.push('');
       startButton.disabled = false;
+      updateInitialLists();
     });
 
+    deleteListButton.addEventListener('click', () => {
+      const selectedInitialList = initialListsSelect.value;
+      delete initialLists[selectedInitialList];
+      setLists(initialLists);
+      const newSelectedInitialList = initialListsSelect.value;
+      loadSelectedList(newSelectedInitialList);
+    });
+
+    addButton.addEventListener('click', () => {
+      const Name = nameInput.value.trim();
+      if (Name) {
+        initialLists[Name] = [];
+        setLists(initialLists);
+        initialListsSelect.value = Name;
+        loadSelectedList(Name);
+        nameInput.value = '';
+      }
+    });
+
+    editNameButton.addEventListener('click', () => {
+      const Name = nameInput.value.trim();
+      if (Name) {
+        const currentName = initialListsSelect.value;
+        if (currentName) {
+          const list = initialLists[currentName];
+          delete initialLists[currentName];
+          initialLists[Name] = list;
+          setLists(initialLists);
+          initialListsSelect.value = Name;
+          loadSelectedList(Name);
+          nameInput.value = '';
+        }
+      }
+    });
 
     startButton.addEventListener('click', () => {
       lists = Array.from(listsContainer.children).map((listContainer) => {
