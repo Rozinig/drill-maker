@@ -23,6 +23,7 @@
 </head>
 <body>
   <h1>Drill Maker</h1>
+  <button id="reset-to-default-button">Reset to Default Lists</button>
   <label for="defaultLanguage">Default TTS Language:</label>
 <select id="defaultLanguage">
   <option value="en" selected>English</option>
@@ -68,7 +69,7 @@
     const startButton = document.getElementById('start-button');
     const stopButton = document.getElementById('stop-button');
     const waitTimeInput = document.getElementById('wait-time-input');
-    const initialListsSelect = document.getElementById('initial-lists-select');
+    const loadedListsSelect = document.getElementById('initial-lists-select');
     const deleteListButton = document.getElementById('delete-list-button');
     const listContainer = document.getElementById('language-list-container');
     const languageList = document.createElement('ul');
@@ -76,6 +77,7 @@
     const nameInput = document.getElementById('name-input');
     const editNameButton = document.getElementById('edit-name-button');
     const uniqueLanguages = new Set();
+    const resetToDefaultButton = document.getElementById('reset-to-default-button');
 
     function loadVoices() {
       const voices = window.speechSynthesis.getVoices();
@@ -102,17 +104,17 @@
       const reader = new FileReader();
       reader.onload = function() {
         const uploadedLists = JSON.parse(reader.result);
-        initialLists = uploadedLists;
-        setLists(initialLists);
-        const selectedInitialList = initialListsSelect.value;
-        loadSelectedList(selectedInitialList);
+        loadedLists = uploadedLists;
+        setLists(loadedLists);
+        const selectedLoadedList = loadedListsSelect.value;
+        loadSelectedList(selectedLoadedList);
       };
       reader.readAsText(file);
     });
 
     // Add an event listener to the download button to handle downloads
     downloadButton.addEventListener('click', () => {
-      const listsToDownload = initialLists;
+      const listsToDownload = loadedLists;
       const json = JSON.stringify(listsToDownload, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -129,38 +131,53 @@
     let playing = false;
 
     // Define multiple initial lists
-    var initialLists = {
+    const defaultLists = {
       'default': ['north, south, east, west', 'up, down, left, right', 'hello, world', 'foo, bar'],
       'unarmed': ['North, East, South, West', 'Ichimonji:ja, Jumonji:ja, Hicho:ja, Shizen:ja, Doko:ja, Hira Ichimonji:ja, Kosei:ja, Fudoza:ja, Hoko:ja', 'Jump, Roll, Punch, Omote Shuto:ja, Ura Shuto:ja, Front kick, Back kick, Reverse Punch'],
       'rokushyakubo': ['North, East, South, West', 'yellow, orange, purple', 'black, white, gray'],
       'sword': ['North, East, South, West', 'ectangle, hexagon, octagon', 'heart, star, diamond']
     };
 
+    var loadedLists = Object.assign({}, defaultLists);
+
+    // Get cookie when site is reloaded
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    function setCookie(name, value) {
+      const expires = 'expires=' + new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
+      document.cookie = `${name}=${value}; ${expires}; path=/`;
+    }
+
     function setLists(listsDict) {
-      initialListsSelect.innerHTML = '';
+      loadedListsSelect.innerHTML = '';
       Object.keys(listsDict).forEach((key) => {
         const option = document.createElement('option');
         console.log(key);
         option.value = key;
         option.textContent = key;
-        initialListsSelect.appendChild(option);
+        loadedListsSelect.appendChild(option);
       });
     };
-    setLists(initialLists);
+    setLists(loadedLists);
 
-    function updateInitialLists() {
-      const selectedInitialList = initialListsSelect.value;
+    function updateLoadedLists() {
+      const selectedLoadedList = loadedListsSelect.value;
       const listsArray = Array.from(listsContainer.children).map((listContainer) => {
         const listInput = listContainer.children[0];
         return listInput.value;
       });
-      initialLists[selectedInitialList] = listsArray;
+      loadedLists[selectedLoadedList] = listsArray;
+      setCookie('loadedLists', JSON.stringify(loadedLists));
     }
 
-    function loadSelectedList(selectedInitialList) {
+    function loadSelectedList(selectedLoadedList) {
       listsContainer.innerHTML = '';
       lists = [];
-      initialLists[selectedInitialList].forEach(function(list) {
+      loadedLists[selectedLoadedList].forEach(function(list) {
         const listInput = document.createElement('textarea');
         listInput.rows = 1;
         listInput.cols = 50;
@@ -186,24 +203,31 @@
           } else {
             startButton.disabled = false;
           }
-          updateInitialLists();
+          updateLoadedLists();
         });
 
-        listInput.addEventListener('input', updateInitialLists);
+        listInput.addEventListener('input', updateLoadedLists);
         lists.push('');
         startButton.disabled = false;
-        updateInitialLists();
+        updateLoadedLists();
       });
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-      const selectedInitialList = initialListsSelect.value;
-      loadSelectedList(selectedInitialList);
+      //const selectedLoadedList = loadedListsSelect.value;
+      //loadSelectedList(selectedLoadedList);
+      const loadedListsCookie = getCookie('loadedLists');
+      if (loadedListsCookie) {
+        loadedLists = JSON.parse(loadedListsCookie);
+        setLists(loadedLists);
+      }
+      const selectedLoadedList = loadedListsSelect.value;
+      loadSelectedList(selectedLoadedList);
     });
 
-    initialListsSelect.addEventListener('change', () => {
-      const selectedInitialList = initialListsSelect.value;
-      loadSelectedList(selectedInitialList);
+    loadedListsSelect.addEventListener('change', () => {
+      const selectedLoadedList = loadedListsSelect.value;
+      loadSelectedList(selectedLoadedList);
     });
 
     addListButton.addEventListener('click', () => {
@@ -230,29 +254,29 @@
         } else {
           startButton.disabled = false;
         }
-        updateInitialLists();
+        updateLoadedLists();
       });
 
-      newListInput.addEventListener('input', updateInitialLists);
+      newListInput.addEventListener('input', updateLoadedLists);
       lists.push('');
       startButton.disabled = false;
-      updateInitialLists();
+      updateLoadedLists();
     });
 
     deleteListButton.addEventListener('click', () => {
-      const selectedInitialList = initialListsSelect.value;
-      delete initialLists[selectedInitialList];
-      setLists(initialLists);
-      const newSelectedInitialList = initialListsSelect.value;
-      loadSelectedList(newSelectedInitialList);
+      const selectedLoadedList = loadedListsSelect.value;
+      delete loadedLists[selectedLoadedList];
+      setLists(loadedLists);
+      const newSelectedLoadedList = loadedListsSelect.value;
+      loadSelectedList(newSelectedLoadedList);
     });
 
     addButton.addEventListener('click', () => {
       const Name = nameInput.value.trim();
       if (Name) {
-        initialLists[Name] = [];
-        setLists(initialLists);
-        initialListsSelect.value = Name;
+        loadedLists[Name] = [];
+        setLists(loadedLists);
+        loadedListsSelect.value = Name;
         loadSelectedList(Name);
         nameInput.value = '';
       }
@@ -261,13 +285,13 @@
     editNameButton.addEventListener('click', () => {
       const Name = nameInput.value.trim();
       if (Name) {
-        const currentName = initialListsSelect.value;
+        const currentName = loadedListsSelect.value;
         if (currentName) {
-          const list = initialLists[currentName];
-          delete initialLists[currentName];
-          initialLists[Name] = list;
-          setLists(initialLists);
-          initialListsSelect.value = Name;
+          const list = loadedLists[currentName];
+          delete loadedLists[currentName];
+          loadedLists[Name] = list;
+          setLists(loadedLists);
+          loadedListsSelect.value = Name;
           loadSelectedList(Name);
           nameInput.value = '';
         }
@@ -300,6 +324,13 @@
       startButton.disabled = false;
       stopButton.disabled = true;
       window.speechSynthesis.cancel();
+    });
+
+    resetToDefaultButton.addEventListener('click', () => {
+      loadedLists = Object.assign({}, defaultLists);
+      setLists(loadedLists);
+      const selectedLoadedList = loadedListsSelect.value;
+      loadSelectedList(selectedLoadedList);
     });
 
     function playNextList() {
